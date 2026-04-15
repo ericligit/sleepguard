@@ -18,6 +18,7 @@ import {format, formatDuration, intervalToDuration} from 'date-fns';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import {getSession, deleteSession} from '../services/database';
+import {analyzeAndPersist} from '../services/apneaAnalysis';
 import type {SleepSession, RootStackParamList} from '../types';
 
 const {AudioRecording} = NativeModules;
@@ -55,6 +56,7 @@ export const SessionDetailScreen: React.FC<Props> = ({navigation, route}) => {
   const {sessionId} = route.params;
   const [session, setSession] = useState<SleepSession | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
     getSession(sessionId).then(setSession);
@@ -89,6 +91,26 @@ export const SessionDetailScreen: React.FC<Props> = ({navigation, route}) => {
       Alert.alert('Playback Error', msg);
     }
   }, [isPlaying, session]);
+
+  const handleAnalyze = useCallback(async () => {
+    if (!session?.filePath) return;
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeAndPersist(session.id, session.filePath);
+      // Refresh session from DB so stats update
+      const updated = await getSession(session.id);
+      if (updated) setSession(updated);
+      Alert.alert(
+        'Analysis Complete',
+        `AHI: ${result.ahi.toFixed(1)}  |  ${result.apneaCount} apneas, ${result.hypopneaCount} hypopneas`,
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert('Analysis Error', msg);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [session]);
 
   const handleDelete = () => {
     Alert.alert('Delete Session', 'This will permanently delete the recording and data.', [
@@ -135,6 +157,17 @@ export const SessionDetailScreen: React.FC<Props> = ({navigation, route}) => {
           <Text style={styles.playBtnIcon}>{isPlaying ? '⏹' : '▶'}</Text>
           <Text style={styles.playBtnText}>
             {isPlaying ? 'Stop Playback' : 'Play Recording'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Analyze */}
+        <TouchableOpacity
+          style={[styles.analyzeBtn, isAnalyzing && styles.analyzeBtnDisabled]}
+          onPress={handleAnalyze}
+          disabled={isAnalyzing}
+          activeOpacity={0.8}>
+          <Text style={styles.analyzeBtnText}>
+            {isAnalyzing ? 'Analyzing…' : 'Run AI Analysis'}
           </Text>
         </TouchableOpacity>
 
@@ -243,6 +276,15 @@ const styles = StyleSheet.create({
   },
   statLabel: {color: '#90A4AE', fontSize: 14},
   statValue: {color: '#E0E0E0', fontSize: 14, fontWeight: '600'},
+
+  analyzeBtn: {
+    backgroundColor: '#1B5E20',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  analyzeBtnDisabled: {backgroundColor: '#2E3B2E', opacity: 0.6},
+  analyzeBtnText: {color: '#A5D6A7', fontSize: 16, fontWeight: '700'},
 
   deleteBtn: {
     borderRadius: 12,

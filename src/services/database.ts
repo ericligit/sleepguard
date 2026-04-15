@@ -123,16 +123,38 @@ export async function deleteSession(id: string): Promise<void> {
   await getDb().execute(`DELETE FROM sessions WHERE id = ?`, [id]);
 }
 
+/** Persist ML analysis results into the sessions row. */
+export async function updateSessionAnalysis(
+  id: string,
+  fields: {
+    ahi: number;
+    severity: string;
+    apneaCount: number;
+    hypopneaCount: number;
+    longestApneaSec: number;
+  },
+): Promise<void> {
+  await getDb().execute(
+    `UPDATE sessions
+     SET ahi = ?, severity = ?, apneaCount = ?, hypopneaCount = ?, longestApneaSec = ?
+     WHERE id = ?`,
+    [fields.ahi, fields.severity, fields.apneaCount, fields.hypopneaCount, fields.longestApneaSec, id],
+  );
+}
+
 // ─── Events ───────────────────────────────────────────────────────────────────
 
-export async function insertEvents(events: AudioEvent[]): Promise<void> {
+export async function insertEvents(
+  events: Array<Omit<AudioEvent, 'id'> & {id?: string}>,
+): Promise<void> {
   const d = getDb();
   for (const e of events) {
+    const id = e.id ?? `${e.sessionId}_${e.startOffsetSec}_${e.type}`;
     await d.execute(
       `INSERT OR IGNORE INTO events
          (id, sessionId, type, startOffsetSec, durationSec, confidence)
        VALUES (?,?,?,?,?,?)`,
-      [e.id, e.sessionId, e.type, e.startOffsetSec, e.durationSec, e.confidence],
+      [id, e.sessionId, e.type, e.startOffsetSec, e.durationSec, e.confidence],
     );
   }
 }

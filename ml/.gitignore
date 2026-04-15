@@ -1,0 +1,9 @@
+.venv/
+data/clips/
+data/manifest.csv
+train/best_model.keras
+train/saved_model/
+train/history.json
+train/train_run.log
+__pycache__/
+*.pyc

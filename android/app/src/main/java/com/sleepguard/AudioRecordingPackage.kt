@@ -7,7 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class AudioRecordingPackage : ReactPackage {
     override fun createNativeModules(ctx: ReactApplicationContext): List<NativeModule> =
-        listOf(AudioRecordingModule(ctx))
+        listOf(AudioRecordingModule(ctx), ApneaAnalysisModule(ctx))
 
     override fun createViewManagers(ctx: ReactApplicationContext): List<ViewManager<*, *>> =
         emptyList()
